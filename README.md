@@ -60,32 +60,7 @@ The script will:
 3. Upload the files to GCS with timestamps in the filenames
 
 ## Workflow
-
-```mermaid
-graph TD
-    A[Start] --> B[Initialize Scrapers]
-    B --> C[CMSScraper]
-    B --> D[NUCCScraper]
-    
-    C --> E[Fetch CMS Website]
-    E --> F[Parse CPT/HCPCS Codes]
-    F --> G[Format CMS Data]
-    
-    D --> H[Fetch NUCC Website]
-    H --> I[Parse Taxonomy Codes]
-    I --> J[Format NUCC Data]
-    
-    G --> K[Consolidate Data]
-    J --> K
-    
-    K --> L[Initialize GCS Uploader]
-    L --> M[Generate Timestamped Filename]
-    M --> N[Upload to Google Cloud Storage]
-    N --> O[End]
-    
-    style A fill:#f9f,stroke:#333,stroke-width:2px
-    style O fill:#f9f,stroke:#333,stroke-width:2px
-```
+![alt text](image.png)
 
 ## Output Format
 
