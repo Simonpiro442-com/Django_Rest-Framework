@@ -1,0 +1,55 @@
+steps:
+  # Install dependencies
+  - name: 'python:3.9'
+    entrypoint: pip
+    args: ['install', '-r', 'requirements.txt', '-t', '/workspace/lib']
+    
+  # Deploy to Cloud Functions
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    args:
+      - gcloud
+      - functions
+      - deploy
+      - taxonomy-scraper
+      - --region=us-central1
+      - --source=.
+      - --trigger-http
+      - --runtime=python39
+      - --entry-point=scrape_taxonomies
+      - --service-account=${_SERVICE_ACCOUNT}
+      - --memory=1024MB
+      - --timeout=540s
+      
+  # Set up Cloud Scheduler
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    args:
+      - gcloud
+      - scheduler
+      - jobs
+      - create
+      - http
+      - daily-taxonomy-scrape
+      - --schedule=0 0 * * *
+      - --time-zone=UTC
+      - --uri=${_FUNCTION_URL}
+      - --http-method=POST
+      - --attempt-deadline=10m
+      - --location=us-central1
+    # Only create if doesn't exist
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        if ! gcloud scheduler jobs describe daily-taxonomy-scrape --location=us-central1 2>/dev/null; then
+          gcloud scheduler jobs create http daily-taxonomy-scrape \
+            --schedule="0 0 * * *" \
+            --time-zone=UTC \
+            --uri=${_FUNCTION_URL} \
+            --http-method=POST \
+            --attempt-deadline=10m \
+            --location=us-central1
+        fi
+
+substitutions:
+  _SERVICE_ACCOUNT: # Your service account email
+  _FUNCTION_URL: # Your function URL (will be available after first deployment)
