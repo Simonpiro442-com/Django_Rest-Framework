@@ -54,6 +54,34 @@ The script will:
 2. Create JSON files with the scraped data
 3. Upload the files to GCS with timestamps in the filenames
 
+## Workflow
+
+```mermaid
+graph TD
+    A[Start] --> B[Initialize Scrapers]
+    B --> C[CMSScraper]
+    B --> D[NUCCScraper]
+    
+    C --> E[Fetch CMS Website]
+    E --> F[Parse CPT/HCPCS Codes]
+    F --> G[Format CMS Data]
+    
+    D --> H[Fetch NUCC Website]
+    H --> I[Parse Taxonomy Codes]
+    I --> J[Format NUCC Data]
+    
+    G --> K[Consolidate Data]
+    J --> K
+    
+    K --> L[Initialize GCS Uploader]
+    L --> M[Generate Timestamped Filename]
+    M --> N[Upload to Google Cloud Storage]
+    N --> O[End]
+    
+    style A fill:#f9f,stroke:#333,stroke-width:2px
+    style O fill:#f9f,stroke:#333,stroke-width:2px
+```
+
 ## Output Format
 
 The script generates JSON files with the following structure:
@@ -139,10 +167,10 @@ As an alternative to Cloud Build, you can deploy using GitHub Actions.
 
 1. Fork/clone this repository to your GitHub account
 2. Set up the following GitHub Secrets:
-   - `GCP_PROJECT_ID`: Your Google Cloud project ID
-   - `GCP_SA_KEY`: Your service account key JSON (base64 encoded)
-   - `GCP_SERVICE_ACCOUNT`: Your service account email
-   - `GCS_BUCKET_NAME`: Your GCS bucket name
+   - `SCRAPER_GCP_PROJECT_ID`: Your Google Cloud project ID
+   - `SCRAPER_GCP_SA_KEY`: Your service account key JSON (base64 encoded)
+   - `SCRAPER_GCP_SERVICE_ACCOUNT`: Your service account email
+   - `SCRAPER_GCS_BUCKET_NAME`: Your GCS bucket name
 
 ### Deployment Process
 

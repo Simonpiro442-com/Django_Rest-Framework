@@ -11,8 +11,8 @@ on:
   workflow_dispatch:  # Allows manual triggering
 
 env:
-  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-  GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+  PROJECT_ID: ${{ secrets.SCRAPER_GCP_PROJECT_ID }}
+  GCP_SA_KEY: ${{ secrets.SCRAPER_GCP_SA_KEY }}
   GCP_REGION: us-central1
   FUNCTION_NAME: taxonomy-scraper
 
@@ -42,7 +42,7 @@ jobs:
       uses: google-github-actions/setup-gcloud@v1
       with:
         project_id: ${{ env.PROJECT_ID }}
-        service_account_key: ${{ env.GCP_SA_KEY }}
+        service_account_key: ${{ env.SCRAPER_GCP_SA_KEY }}
         export_default_credentials: true
 
     - name: Deploy Cloud Function
