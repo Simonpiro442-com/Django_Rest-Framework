@@ -2,6 +2,11 @@
 
 A Python script that scrapes CMS CPT/HCPCS codes and NUCC taxonomy codes, consolidates them into a JSON format, and uploads the results to Google Cloud Storage.
 
+## URLs to Scrape
+
+- [CMS CPT/HCPCS Codes](https://www.cms.gov/medicare/coverage/cpt-codes)
+- [NUCC Taxonomy Codes](https://taxonomy.nucc.org/)
+
 ## Features
 
 - Scrapes CMS CPT/HCPCS codes from cms.gov
