@@ -80,59 +80,152 @@ class CMSScraper(BaseScraper):
 class NUCCScraper(BaseScraper):
     def __init__(self):
         super().__init__()
-        self.url = "https://taxonomy.nucc.org/"
+        self.base_url = "https://taxonomy.nucc.org/"
+        self.csv_url = "https://taxonomy.nucc.org/cs/groups/public/documents/datalist/nucc_taxonomy_234.csv"
+        # Check if the CSV URL is updated periodically, you might need to scrape the main page to find the current link
 
     def scrape(self) -> List[Dict[str, str]]:
         """Scrape NUCC taxonomy codes."""
         logger.info("Starting NUCC taxonomy code scraping")
         
-        response = self._make_request(self.url)
-        soup = BeautifulSoup(response.content, 'lxml')
-        
-        codes = []
         try:
-            # Note: This is a placeholder for the actual taxonomy code extraction logic
-            # You'll need to adjust these selectors based on the actual page structure
-            taxonomy_elements = soup.find_all('div', class_='taxonomy-code')  # Adjust selector
+            # First try direct CSV download (more reliable)
+            response = self._make_request(self.csv_url)
             
-            for element in taxonomy_elements:
+            # Process the CSV data
+            import csv
+            from io import StringIO
+            
+            csv_data = StringIO(response.text)
+            reader = csv.DictReader(csv_data)
+            
+            codes = []
+            for row in reader:
+                # Adjust these field names based on actual CSV headers
                 codes.append({
                     "source": "nucc",
-                    "code": element.find('span', class_='code').get_text(strip=True),  # Adjust selector
-                    "description": element.find('span', class_='description').get_text(strip=True),  # Adjust selector
-                    "category": element.find('span', class_='category').get_text(strip=True),  # Adjust selector
-                    "taxonomy_code": element.find('span', class_='code').get_text(strip=True),
+                    "code": row.get("Code"),
+                    "description": row.get("Classification"),
+                    "category": row.get("Specialization"),
+                    "taxonomy_code": row.get("Code"),
+                    "speciality": row.get("Definition"),
                     "cpt_code": None
                 })
-        
+                
+            logger.info(f"Successfully scraped {len(codes)} NUCC taxonomy codes from CSV")
+            return codes
+            
         except Exception as e:
-            logger.error(f"Error parsing NUCC data: {str(e)}")
-            raise
+            logger.warning(f"CSV download failed, attempting HTML scraping: {str(e)}")
+            
+            # Fallback to HTML scraping
+            response = self._make_request(self.base_url)
+            soup = BeautifulSoup(response.content, 'lxml')
+            
+            codes = []
+            # Look for download links or tables
+            download_link = soup.find('a', href=lambda href: href and '.csv' in href)
+            
+            if download_link:
+                # If we found a CSV link, use that instead
+                csv_url = download_link.get('href')
+                if not csv_url.startswith('http'):
+                    csv_url = self.base_url + csv_url
+                
+                logger.info(f"Found CSV download link: {csv_url}")
+                return self.scrape_from_csv(csv_url)
+            
+            # If no CSV, look for tables
+            tables = soup.find_all('table')
+            
+            for table in tables:
+                rows = table.find_all('tr')
+                for row in rows[1:]:  # Skip header
+                    cols = row.find_all('td')
+                    if len(cols) >= 2:
+                        codes.append({
+                            "source": "nucc",
+                            "code": cols[0].get_text(strip=True),
+                            "description": cols[1].get_text(strip=True),
+                            "category": cols[2].get_text(strip=True) if len(cols) > 2 else "General",
+                            "taxonomy_code": cols[0].get_text(strip=True),
+                            "cpt_code": None
+                        })
+            
+            logger.info(f"Successfully scraped {len(codes)} NUCC taxonomy codes from HTML")
+            return codes
+            
+    def scrape_from_csv(self, csv_url: str) -> List[Dict[str, str]]:
+        """Helper method to scrape from CSV URL."""
+        response = self._make_request(csv_url)
+        import csv
+        from io import StringIO
         
-        logger.info(f"Successfully scraped {len(codes)} NUCC taxonomy codes")
+        csv_data = StringIO(response.text)
+        reader = csv.DictReader(csv_data)
+        
+        codes = []
+        for row in reader:
+            # Adjust field names based on actual CSV structure
+            codes.append({
+                "source": "nucc",
+                "code": row.get("Code"),
+                "description": row.get("Classification"),
+                "category": row.get("Specialization"),
+                "taxonomy_code": row.get("Code"),
+                "cpt_code": None
+            })
+        
         return codes
 
 class GCSUploader:
     def __init__(self):
-        self.bucket_name = os.getenv('GCS_BUCKET_NAME')
-        self.client = storage.Client()
-        self.bucket = self.client.bucket(self.bucket_name)
+        # Comment out GCS functionality and force local storage for testing
+        # self.bucket_name = os.getenv('GCS_BUCKET_NAME')
+        # self.use_gcs = self.bucket_name is not None and self.bucket_name.strip() != ""
+        
+        # Force local storage for testing
+        self.use_gcs = False
+        self.bucket_name = None
+        
+        # if self.use_gcs:
+        #     self.client = storage.Client()
+        #     self.bucket = self.client.bucket(self.bucket_name)
+        #     logger.info(f"GCS storage enabled. Will upload to bucket: {self.bucket_name}")
+        # else:
+        # Ensure local output directory exists
+        self.output_dir = os.path.join(os.getcwd(), "output")
+        os.makedirs(self.output_dir, exist_ok=True)
+        logger.info(f"GCS storage disabled. Will save files locally to: {self.output_dir}")
 
     def upload_json(self, data: List[Dict[str, Any]], prefix: str) -> str:
-        """Upload JSON data to GCS with timestamp in filename."""
+        """Upload JSON data to GCS or save locally with timestamp in filename."""
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         filename = f"{prefix}_{timestamp}.json"
-        blob = self.bucket.blob(filename)
         
         try:
-            blob.upload_from_string(
-                json.dumps(data, indent=2),
-                content_type='application/json'
-            )
-            logger.info(f"Successfully uploaded {filename} to GCS")
-            return f"gs://{self.bucket_name}/{filename}"
+            # Comment out GCS upload code for testing
+            # if self.use_gcs:
+            #     # Upload to Google Cloud Storage
+            #     blob = self.bucket.blob(filename)
+            #     blob.upload_from_string(
+            #         json.dumps(data, indent=2),
+            #         content_type='application/json'
+            #     )
+            #     file_path = f"gs://{self.bucket_name}/{filename}"
+            #     logger.info(f"Successfully uploaded {filename} to GCS")
+            # else:
+            # Save locally
+            local_path = os.path.join(self.output_dir, filename)
+            with open(local_path, 'w') as f:
+                json.dump(data, f, indent=2)
+            file_path = f"file://{local_path}"
+            logger.info(f"Successfully saved {filename} locally")
+                
+            return file_path
+            
         except Exception as e:
-            logger.error(f"Error uploading to GCS: {str(e)}")
+            logger.error(f"Error saving/uploading data: {str(e)}")
             raise
 
 def main():
@@ -162,6 +255,18 @@ def main():
         
         logger.info(f"CMS codes uploaded to: {cms_url}")
         logger.info(f"NUCC codes uploaded to: {nucc_url}")
+
+        # Return results for API response
+        return {
+            "cms_codes_count": len(cms_codes),
+            "nucc_codes_count": len(nucc_codes),
+            "total_codes_count": len(all_codes),
+            "file_urls": {
+                "combined": combined_url,
+                "cms": cms_url,
+                "nucc": nucc_url
+            }
+        }
 
     except Exception as e:
         logger.error(f"Error in main execution: {str(e)}")

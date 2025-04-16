@@ -1,0 +1,13 @@
+2025-03-20 22:46:29.215 | INFO     | scraper:scrape:48 - Starting CMS CPT/HCPCS code scraping
+2025-03-20 22:46:29.935 | INFO     | scraper:scrape:77 - Successfully scraped 0 CMS codes
+2025-03-20 22:46:29.936 | INFO     | scraper:scrape:89 - Starting NUCC taxonomy code scraping
+2025-03-20 22:46:30.208 | ERROR    | scraper:_make_request:38 - Error fetching https://taxonomy.nucc.org/cs/groups/public/documents/datalist/nucc_taxonomy_234.csv: 404 Client Error: Not Found for url: https://taxonomy.nucc.org/cs/groups/public/documents/datalist/nucc_taxonomy_234.csv
+2025-03-20 22:46:30.208 | WARNING  | scraper:scrape:119 - CSV download failed, attempting HTML scraping: 404 Client Error: Not Found for url: https://taxonomy.nucc.org/cs/groups/public/documents/datalist/nucc_taxonomy_234.csv
+2025-03-20 22:46:30.422 | INFO     | scraper:scrape:155 - Successfully scraped 0 NUCC taxonomy codes from HTML
+2025-03-20 22:46:30.423 | INFO     | scraper:__init__:194 - GCS storage disabled. Will save files locally to: /Users/osedania/Documents/withinlabs/taxonomy-cpt-scraper/output
+2025-03-20 22:46:30.423 | INFO     | scraper:upload_json:217 - Successfully saved all_codes_20250320_224630.json locally
+2025-03-20 22:46:30.423 | INFO     | scraper:main:244 - Combined dataset uploaded to: file:///Users/osedania/Documents/withinlabs/taxonomy-cpt-scraper/output/all_codes_20250320_224630.json
+2025-03-20 22:46:30.424 | INFO     | scraper:upload_json:217 - Successfully saved cms_codes_20250320_224630.json locally
+2025-03-20 22:46:30.424 | INFO     | scraper:upload_json:217 - Successfully saved nucc_codes_20250320_224630.json locally
+2025-03-20 22:46:30.424 | INFO     | scraper:main:250 - CMS codes uploaded to: file:///Users/osedania/Documents/withinlabs/taxonomy-cpt-scraper/output/cms_codes_20250320_224630.json
+2025-03-20 22:46:30.424 | INFO     | scraper:main:251 - NUCC codes uploaded to: file:///Users/osedania/Documents/withinlabs/taxonomy-cpt-scraper/output/nucc_codes_20250320_224630.json
