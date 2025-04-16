@@ -1,0 +1,100 @@
+name: Deploy Taxonomy Scraper
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Runs at 00:00 UTC every day
+    - cron: '0 0 * * *'
+  workflow_dispatch:  # Allows manual triggering
+
+env:
+  PROJECT_ID: ${{ secrets.SCRAPER_GCP_PROJECT_ID }}
+  GCP_SA_KEY: ${{ secrets.SCRAPER_GCP_SA_KEY }}
+  GCP_REGION: us-central1
+  FUNCTION_NAME: taxonomy-scraper
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest  # for testing
+
+    - name: Run tests
+      run: |
+        python -m pytest tests/ -v
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v1
+      with:
+        project_id: ${{ env.PROJECT_ID }}
+        service_account_key: ${{ env.SCRAPER_GCP_SA_KEY }}
+        export_default_credentials: true
+
+    - name: Deploy Cloud Function
+      run: |
+        gcloud functions deploy ${{ env.FUNCTION_NAME }} \
+          --region=${{ env.GCP_REGION }} \
+          --source=. \
+          --trigger-http \
+          --runtime=python39 \
+          --entry-point=scrape_taxonomies \
+          --memory=1024MB \
+          --timeout=540s \
+          --service-account=${{ secrets.GCP_SERVICE_ACCOUNT }} \
+          --set-env-vars="GCS_BUCKET_NAME=${{ secrets.GCS_BUCKET_NAME }}"
+
+    - name: Update Cloud Scheduler
+      run: |
+        FUNCTION_URL=$(gcloud functions describe ${{ env.FUNCTION_NAME }} \
+          --region=${{ env.GCP_REGION }} \
+          --format='value(httpsTrigger.url)')
+        
+        # Check if job exists
+        if ! gcloud scheduler jobs describe daily-taxonomy-scrape --location=${{ env.GCP_REGION }} 2>/dev/null; then
+          gcloud scheduler jobs create http daily-taxonomy-scrape \
+            --schedule="0 0 * * *" \
+            --time-zone=UTC \
+            --uri="$FUNCTION_URL" \
+            --http-method=POST \
+            --attempt-deadline=10m \
+            --location=${{ env.GCP_REGION }}
+        else
+          gcloud scheduler jobs update http daily-taxonomy-scrape \
+            --schedule="0 0 * * *" \
+            --time-zone=UTC \
+            --uri="$FUNCTION_URL" \
+            --http-method=POST \
+            --attempt-deadline=10m \
+            --location=${{ env.GCP_REGION }}
+        fi
+
+    - name: Notify deployment status
+      if: always()
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const { job, conclusion } = context;
+          const status = conclusion === 'success' ? '✅' : '❌';
+          const message = `${status} Deployment ${conclusion}\n\nFunction: ${process.env.FUNCTION_NAME}\nRegion: ${process.env.GCP_REGION}`;
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: message
+          });
